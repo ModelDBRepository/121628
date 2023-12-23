@@ -1,0 +1,98 @@
+/* qgraf.hoc
+   copyright 1997-2002 by N.T. Carnevale
+   all rights reserved
+
+   plots contents of clipboard in a graph window
+
+   version 2.0 2/6/2002 NTC
+ */
+
+SYMSIZE = 8	// size of symbols used to mark graphs
+
+load_file("nrngui.hoc")
+// xopen("$(NEURONHOME)/lib/hoc/noload.hoc")
+
+/*
+.brush(index) 
+     Set the default brush. 0 is the thinnest line possible, 
+     1-4 are thickness in pixel. Higher indices cycle through these
+     line thicknesses with different brush patterns. 
+.brush(index, pattern, width) 
+     Install a brush in the Brush Palette to be accessed with the index. 
+     The width is in pixel coords (< 1000). The pattern
+     is a 31 bit pattern of 1's and 0's which is used to make dash patterns. 
+*/
+
+dosymbol = 0
+// objref g
+objref QGraf
+
+
+proc addplot() {
+// bulletproof this sometime
+// by checking for existence of a graph object called g
+//  hoc_obj_[0].plot(g, hoc_obj_[1])
+//  hoc_obj_[0].line(g, hoc_obj_[1])
+  hoc_obj_[0].line(QGraf, hoc_obj_[1])
+  if (dosymbol == 1) {
+//    hoc_obj_[0].mark(g, hoc_obj_[1], "+", SYMSIZE)
+    hoc_obj_[0].mark(QGraf, hoc_obj_[1], "+", SYMSIZE)
+  }
+  if (dosymbol == 2) {
+//    hoc_obj_[0].mark(g, hoc_obj_[1], "o", SYMSIZE)
+    hoc_obj_[0].mark(QGraf, hoc_obj_[1], "o", SYMSIZE)
+  }
+  if (dosymbol == 3) {
+//    hoc_obj_[0].mark(g, hoc_obj_[1], "t", SYMSIZE-1)
+    hoc_obj_[0].mark(QGraf, hoc_obj_[1], "t", SYMSIZE-1)
+  }
+  if (dosymbol == 4) {
+//    hoc_obj_[0].mark(g, hoc_obj_[1], "s", SYMSIZE-1)
+    hoc_obj_[0].mark(QGraf, hoc_obj_[1], "s", SYMSIZE-1)
+  }
+}
+
+
+proc plotclipboard() {
+  QGraf = new Graph()
+  QGraf.size(0,10,-1,1)
+  addplot()
+}
+
+
+proc dosym() {
+  dosymbol = $1
+}
+
+
+objectvar save_window_, rvp_
+objectvar scene_vector_[2]
+objectvar ocbox_, ocbox_list_, scene_, scene_list_
+
+objref boxv
+
+{ocbox_list_ = new List()  scene_list_ = new List()}
+
+boxv = new VBox()
+boxv.intercept(1)
+{
+// xpanel("Qgraf", 0)
+xpanel("QGraf", 0)
+//  xbutton("Retrieve from File","load_proc(\"clipboard_retrieve\") clipboard_retrieve()")
+  xbutton("Retrieve from File","load_file(\"stdlib.hoc\",\"clipboard_retrieve\") clipboard_retrieve()")
+  xbutton("New clipboard graph","plotclipboard()")
+  xbutton("Add a trace","addplot()")
+  xlabel("Symbol")
+  xradiobutton("none","dosym(0)")
+  xradiobutton("plus","dosym(1)")
+  xradiobutton("circle","dosym(2)")
+  xradiobutton("triangle","dosym(3)")
+  xradiobutton("square","dosym(4)")
+xpanel()
+}
+boxv.intercept(0)
+boxv.map()
+objectvar scene_vector_[1]
+{doNotify()}
+
+/* end of code */

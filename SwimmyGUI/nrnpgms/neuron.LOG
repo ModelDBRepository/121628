@@ -1,0 +1,118 @@
+neuron
+
+NEURON --  Version 5.2 2002/03/28
+by John W. Moore, Michael Hines, and Ted Carnevale
+Duke and Yale University -- Copyright 2001
+
+loading membrane mechanisms from nrnmech.dll
+Additional mechanisms from files
+ CHAYHH.MOD EPlasInp.mod EPlasSom.mod EPlasSomf.mod EPlasSyn.mod EPlasSynf.mod ExIAF.mod FHH.MOD HHALT.MOD HHCA.MOD HHCA1.MOD I
+NPUT.MOD InhIAF.mod PACEF.MOD
+With CVode
+"jvmdll" not defined in nrn.def
+JNI_CreateJavaVM returned -1
+Info: optional feature Java VM is not present.
+oc>load_file("$(NEURONHOME)/nrnpgms/swmgui.hoc")
+        1 
+        1 
+        1 
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+<< fSoma >>
+        1 
+        1 
+oc>objref stim1, stim2
+oc>cell3.soma{
+oc>stim1=new IClamp(.5)
+oc>stim1.del=1
+oc>stim1.dur=1
+oc>stim1.amp=5
+oc>}
+oc>cell5.soma{
+oc>stim2=new IClamp(.5)
+oc>stim2.del=20
+oc>stim2.dur=1
+oc>stim2.amp=5}
+oc>
+oc>
+oc>
+oc>
+oc>
+oc>stim1.amp=1
+oc>
+oc>// hi there
+oc>//Lets make a gui that by pressing a button allows making a cell4 IClamp with a gui to >
+oc>//adjust parameters.
+oc>xpanel("swimmystuff")
+        0 
+oc>xpanel()
+        0 
+oc>xpanel("swimmymorestuff")
+        0 
+oc>xbutton("print something", "print 155")
+        0 
+oc>xpanel()
+        0 
+oc>155 
+155 
+155 
+155 
+155 
+oc>
+oc>
+oc>xpanel("moreswimmystuff")
+        0 
+oc>xbutton("stim 1",
+"H:\NS101L\nrnalone\bin\neuron.exe": parse error near line 36
+xbutton("stim 1",
+                  ^
+oc>xbutton("cell1","print 1")
+        0 
+oc>xbutton("cell2","print 2")
+        0 
+oc>xbutton ("cell3","print 3")
+        0 
+oc>xbutton("cell4", "print 4)
+"H:\NS101L\nrnalone\bin\neuron.exe": missing quote  near line 40
+xbutton("cell4", "print 4)
+                           ^
+oc>xbutton("cell4","print 4")
+        0 
+oc>xbutton("cell5", "print 
+"H:\NS101L\nrnalone\bin\neuron.exe": missing quote  near line 42
+xbutton("cell5", "print 
+                         ^
+oc>xbutton("cell5", "print 5")
+        0 
+oc>xpanel()
+        0 
+oc>1 
+2 
+3 
+4 
+5 
+1 
+

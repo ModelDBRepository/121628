@@ -1,0 +1,14 @@
+{ivoc_style("*panel_scroll", "20")}
+{ivoc_style("*radioScale", "1.2")}
+{xopen("celbild/celtopol.hoc")}
+{xopen("celbild/celgeom.hoc")}
+{xopen("celbild/celset.hoc")}
+{xopen("celbild/celmemb.hoc")}
+{xopen("celbild/celmang.hoc")}
+{xopen("celbild/celbild1.hoc")}
+
+objref tobj
+proc makecellbuilder() {
+	tobj = new CellBuild()
+	objref tobj
+}

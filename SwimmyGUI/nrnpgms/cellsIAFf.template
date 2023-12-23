@@ -1,0 +1,37 @@
+/*--------------------------------------------------------------
+    TEMPLATE FILE 
+This is FK's version of Deans cellsIAF.template with channels that are 
+redundant to ones I will put in removed and with soma geometry made as I want it.
+	--------------------------------------------
+
+	. ONE COMPARTMENT (soma)
+
+	L = cell length, amount of current to fire a cell is directly proportional
+		to the area of the cell.
+--------------------------------------------------------------*/
+
+begintemplate fSoma		// create a new template object...
+public soma
+create soma
+proc init() { 
+   soma {
+         nseg = 1
+	   diam = 60		
+	   L = 60
+
+	   insert ExIAF		// UNFORTUNATELY THIS SEEMS TO BE NEEDED FOR 
+                                //SYNAPSES TO WORK		
+	      //ePAS_ExIAF = -60	NOW IRRELVANT
+          	gPAS_ExIAF = 0	
+          	eOFF_ExIAF = -60		
+	      gAHPbar_ExIAF = 0  //WAS .00007
+            gONconst_ExIAF=0
+            gOFFconst_EXIAF=0
+	   // THIS IS FOR SYNAPSES
+	   insert EPlasSomf
+
+  }
+  print "<< fSoma >>"
+}
+endtemplate fSoma
+

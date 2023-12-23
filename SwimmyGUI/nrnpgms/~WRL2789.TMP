@@ -1,0 +1,224 @@
+/* //////////////////COMMENTS////////////////////////////////////////////////
+
+HERE GOES AN ATTEMPT TO MAKE THREE DEAN TYPE CELLS WITH FIRST AND SECOND MAKING A DEAN TYPE SYNAPSE ON THE THIRD
+
+DEANS PRELIMINARIES FOLLOW (much of which may  be completely irrelvant).  Must use in NeuronBench folder
+
+INVOKE WITH FRANK'S SHORTCUT, WHICH CALLS THE APPROPRIATE .dll FILE  
+
+Addition of hh params, setting gONconst_ExIAF and gOFFconst_ExIAF to zero, and setting celsius to 10 made the thing work and yielded ok looking spikes.
+
+The program is to be opened with the "shortcut to franks thing" which loads the necessary .dll file.  The format for that is
+
+ C:\nrn\Bin\Neuron.exe -dll c:/NeuronBench/Nrnmech.dll 3deanstylecells.hoc
+
+The first part of the shortcut tells where the exe file for neuron that is to be used is found.  -dll tells it to load a dll file.  The next bit is the location of the dll file that should be used.  Finally is the hoc or oc file to be called which, at least given the way that the line is currently written assumes that this is in the same directory as the dll file.  Something in the early lines also opens the gui main menu. The hoc file itself opens the session windows, as indicated at the end of the program.
+
+one thing I don't understand is that the EPSPs have a hyperpolarizing tail on them.
+
+THIS PROGRAM RELIES ON A .DLL FILE THAT WAS MADE FROM A VERSION OF EPlasSyn.mod in which Erev_1 (the reversal pot for ampa receptors) has been changed from a gobal to a range variable so that it can be set differently for different synapses.  It is referenced with the syntax [synapse name].Erev_1.  This dll file is found in the directory fneurons.
+
+WOW!! The reason I  was getting hyperpolarizations on my EPSPs is that they were activating hh mechanisms.  If I don't insert hh and instead replace them with the following passive spec, then I get a normal looking EPSP:
+It helps considerably to to lower the resting level of the cells by altering leak channel properties.  Even better would be to provide the cells with axons and not even give somas hh properties, but I don't think I want to do that.
+
+hhca1 is Franks version of hh in which various additional variables are range instead of global, in which tables get remade due to changes in more variables, and in which all currents are treated as non-specific leaks so their equilibrium potentials can be set independently.  At some point it should be renamed hhf and the existing hhf trashed.
+
+///////////////////////////////////////////////////////////////   */
+
+xopen("$(NEURONHOME)/lib/hoc/noload.hoc") // avoid time to search with load_proc
+nrnmainmenu()										// create main menu
+//nrncontrolmenu()									// //crate control menu
+xopen("./cellsIAFf.template")			// load frank's template for RE cell
+dt=0.1
+tstop = 30  //I will prob want to increase this to longest they will need.
+runStopAt = tstop
+steps_per_ms = 10
+celsius = 10     //was 36
+v_init = -85  //	WAS -65; -85 APPROPRIATE FOR FRANK NEURONS
+//---------------------------------------------------------
+
+//MY CODE BEGINS HERE:
+
+create soma  //This is for use as a default segment that
+//will make a line that overlaps X axis in voltage plots so 
+//don't have to delete default plot of accessed segment
+access soma
+insert pas
+g_pas=.01
+e_pas=0 
+
+//MAKE CELLS:
+objectvar cell1, cell2, cell3, cell4, cell5, cell6, cell7, cell8
+
+//fSoma() makes cells with 60 u soma &inserts stuff needed to make dean's 
+//synapses work. Int&Fire properties also inserted but inactivated.
+
+//I think setting nfact=2 shortens the refractory period a bit, but
+//it also seems to interfere with getting effective temporal summation
+//so I don't think I will do it.
+
+
+cell1= new fSoma() //First endog burster of oscillator
+access cell1.soma
+insert hhca1  //Franks version of hh. should be renamed.
+el_hhca1=200
+ek_hhca1=-90
+trec_EPlasSomf=0
+Beta_1_EPlasSomf=.15  //Beta for EPSP resides in presynaptic cell
+                      //Might want smaller to make IPSP longer
+insert pacef
+a_pacef=.3     //bigger makes burst shorter
+b_pacef=.002  //bigger makes inter burst interval shorter
+c0_pacef=0
+g0_pacef=0
+
+cell2= new fSoma()  //Second endog burster of oscillator
+access cell2.soma
+insert hhca1
+el_hhca1= 200     //-85 for debugging 200
+ek_hhca1=-90
+trec_EPlasSomf=0
+Beta_1_EPlasSomf=.15 
+insert pacef
+a_pacef=.3
+b_pacef=.002
+c0_pacef=0
+g0_pacef=.1  //Same as gmax set to in mod file
+
+
+cell3= new fSoma()  //First tonic excit int n.  
+access cell3.soma
+insert hhca1
+el_hhca1=200
+ek_hhca1=-90
+trec_EPlasSomf=0
+Beta_1_EPlasSomf=.5  
+
+cell4= new fSoma()  //Second tonic excit int n.
+access cell4.soma
+insert hhca1
+el_hhca1=200
+ek_hhca1=-90
+trec_EPlasSomf=0
+Beta_1_EPlasSomf=.5  
+
+cell5= new fSoma()  //First motor neuron
+access cell5.soma
+insert hhca1
+el_hhca1=-85
+ek_hhca1=-90
+trec_EPlasSomf=0
+Beta_1_EPlasSomf=.5  //Beta for EPSP resides in presynaptic cell
+
+cell6= new fSoma()  //Second motor neuron
+access cell6.soma
+insert hhca1
+el_hhca1=-85
+ek_hhca1=-90
+trec_EPlasSomf=0
+Beta_1_EPlasSomf=.5  //Beta for EPSP resides in presynaptic cell
+
+
+cell7= new fSoma()  //Antagonist inhibitor
+access cell7.soma
+insert hhca1
+el_hhca1=-85
+ek_hhca1=-90
+trec_EPlasSomf=0
+Beta_1_EPlasSomf=.2  //Beta for EPSP resides in presynaptic cell
+
+cell8= new fSoma()  //Antagonist inhibitor
+access cell8.soma
+insert hhca1
+el_hhca1=-85
+ek_hhca1=-90
+trec_EPlasSomf=0
+Beta_1_EPlasSomf=.2  //Beta for EPSP resides in presynaptic cell
+
+gONconst_ExIAF=0  // THIS & NXT SHUT OFF INTEGRATE AND FIRE ACTION
+        //ALREADY DONE IN TEMPLATE; DOING IT HERE IS ALMOST CERTAILY REDUNDANT.
+
+gOFFconst_ExIAF=0
+
+//MAKE SYNAPSES
+
+proc makesyn() {    //pass in order: synname, precellname, postcellname     
+                    //changing proc name to "connect" wasn't ok!!?
+$o1 = new EPlasSynf()
+$o3.soma $o1.loc(0.5)
+setpointer $o1.ampa, $o2.soma.ampa_EPlasSomf
+setpointer $o1.nmda, $o2.soma.nmda_EPlasSomf
+setpointer $o1.lastprespike, $o2.soma.lastspike_EPlasSomf
+setpointer $o1.Gain, $o3.soma.Gain_ExIAF
+setpointer $o1.ScaleFactor, $o3.soma.ScaleFactor_ExIAF
+setpointer $o1.Induction, $o3.soma.Induction_ExIAF
+setpointer $o1.lastpostspike, $o3.soma.lastspike_EPlasSomf
+$o1.scale=0
+$o1.gmaxNMDA=0  //THIS ALWAYS NEEDS TO BE GIVEN MY USAGE
+$o1.gmaxAMPA=.0005  // THIS IS A DEFAULT THAT I OVERWRITE BELOW
+//The above are not sufficient, since the gmaxs change.  Revising EPlasSyn to
+//try to prevent this.
+}
+
+objectvar syn[30]  //won't use all of these.
+
+makesyn(syn[0],cell1, cell2)  //inhib synapse between endog bursters
+syn[0].Erev_1= -90
+syn[0].gmaxAMPA=.7  //Strength of inhib synapses may need adjustment.
+
+makesyn(syn[1], cell2, cell1)  //inhib synapse between endog bursters
+syn[1].Erev_1= -90
+syn[1].gmaxAMPA=.7
+
+makesyn(syn[2], cell1, cell3)   //inhibits tonic interneuron
+syn[2].Erev_1= -90
+syn[2].gmaxAMPA= 1.5   //really needs to be 1.5 to prevent overlap
+
+makesyn(syn[3], cell2, cell4)   //inhibits tonic interneuron
+syn[3].Erev_1= -90
+syn[3].gmaxAMPA= 1.5
+
+makesyn(syn[4], cell3, cell5)   //tonic interneuron excites motor n.
+syn[4].Erev_1=0
+syn[4].gmaxAMPA= .3  //More reliable relay synapse than .2
+                     //Might also want to shorten but prob ok.
+
+makesyn(syn[5], cell4, cell6)  //tonic interneuron excites motor n.
+syn[5].Erev_1=0
+syn[5].gmaxAMPA= .3  //More reliable relay synapse than .2
+                     //Might also want to shorten but prob ok.
+//Make Beta .5 and gmax .3.  Then get a spike on each EPSP
+
+makesyn(syn[6], cell5, cell7)   //excite crossed mot n inhibitor
+syn[6].Erev_1= 0
+syn[6].gmaxAMPA=.33  //Needed to shorten bursts which otherwise overlap.
+                     //Can instead strengthen inhib synapses 2 and 3, but then
+                     //syns 6 & 7 have little purpose.
+
+makesyn(syn[7], cell6, cell8)   //excite crossed mot n inhibitor
+syn[7].Erev_1= 0
+syn[7].gmaxAMPA=.33
+
+makesyn(syn[8], cell7, cell6)   //crossed mot n inhib
+syn[8].Erev_1= -90
+syn[8].gmaxAMPA=.5
+
+makesyn(syn[9], cell8, cell5)   //crossed mot n inhib
+syn[9].Erev_1= -90
+syn[9].gmaxAMPA=.5
+
+access soma
+//NOTE ERRORS IN INDICES ABOVE.  PROGRAM WORKED DESPITE THEM, SO BE CAREFUL //ABOUT CHANGES
+//Initial memb pot sould be set to -85.
+
+
+objectvar p
+proc electrode(){  //Argument is cell name without .soma     THIS WORKS!!
+access $o1.soma 
+p= new PointProcessManager()
+access soma
+}
+
+
+xopen ("swimmyendog2.ses")
+

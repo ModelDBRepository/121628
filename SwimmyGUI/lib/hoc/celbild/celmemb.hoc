@@ -1,0 +1,567 @@
+begintemplate MStanWrap
+public ms, msold, changed, set_default, box, is_ms
+objref ms, msold, box
+strdef tstr
+
+proc init() {
+	ms = $o1
+	is_ms = 1
+	if (numarg() == 2) {
+		is_ms = $2
+	}
+	if (is_ms) {
+		ms.name(tstr)
+		msold = new MechanismStandard(tstr)
+	}
+	set_default()
+}
+proc set_default() {
+	if (is_ms) {
+		ms.out(msold)
+	}else{
+		ms.set_default()
+	}
+}
+func changed() {local i, j
+	if (is_ms) {
+		for i = 0, ms.count-1 {
+			for j=0, ms.name(tstr, i) - 1 {
+				if (ms.get(tstr, j) != msold.get(tstr, j)) {
+					return 1
+				}
+			}
+		}
+	}else{
+		return ms.changed()
+	}
+	return 0
+}
+
+endtemplate MStanWrap
+
+begintemplate CellMembrane
+public update, mstate, save_data, g, bild, changed, pr, consist, modified
+public free, cexport, export
+objref g, this, setlist, mt, tobj, hbox, bild, sf, ms[1], vbox, d1,d2
+objref mlist, tobj1, nil
+double mstate[1]
+strdef tstr, tstr1, tstr2, lab1
+proc init() {
+	emem = 0
+	first = 1
+	bild = $o1
+	g = bild.gtopol
+	setlist = new List()
+	mlist = new List()
+	sf = new StringFunctions()
+	mt = new MechanismType(0)
+	panel()
+	sprint(tstr, "%s", this)
+	hbox.map(tstr)
+}
+
+proc hints() {
+xpanel("CellBuild Biophysics hints")
+xlabel("Usage Hints:")	
+xlabel("First, use \"Specify Strategy\" to define a (hopefully compact)")
+xlabel("    strategy of which membrane parameter sets should be")
+xlabel("    associated with which subsets and individual sections.")
+xlabel("    If a subset or section is used for a membrane spec that ")
+xlabel("    fact is noted in its label.")
+xlabel("")
+xlabel("Next, unselect the strategy button to use the strategy.")
+xlabel("    Only the subsets and sections with mechanisms are shown.")
+xlabel("    If a subset or section has mechanism values that differ")
+xlabel("    from the values when this tool was last saved in a session")
+xlabel("    file, an \"x\" is shown in front of its strategy label.")
+xlabel("")
+xlabel("The strategy order should be general to specific since the")
+xlabel("  specification will be executed in the order given.")
+xlabel("  Go back to \"Subsets\" if more subsets are needed or if the")
+xlabel("  order needs to be changed.")
+xpanel()
+}
+
+proc cexport() { local i
+	emem = $1
+	if (bild.continuous == 0) {
+		emem = 0
+	}
+	consist()
+}
+
+proc export() {local i, j, l, m, n, ii
+    if (emem) {
+	for i=0, setlist.count-1{
+	    tobj = setlist.object(i)
+	    if (tobj.ml.count) {
+		l = ltype(tobj)
+		if (l == 1) {
+			sprint(tstr2, "forsec %s {", tobj.name_)
+		}else{
+			tobj.name(tstr)
+			sprint(tstr2, "%s {", tstr)
+		}
+		tobj = tobj.ml
+		for j=0, tobj.count-1 {
+			tobj1 = tobj.object(j).ms
+			tobj1.name(tstr)
+		    if (tobj.object(j).is_ms) {
+			sprint(tstr, "%s insert %s }", tstr2, tstr)
+//print tstr
+			execute(tstr)
+			for m=0, tobj1.count-1 {
+				n = tobj1.name(tstr, m)
+				if (n == 1) {
+sprint(tstr, "%s %s = %g }", tstr2, tstr, tobj1.get(tstr))
+//print tstr
+					execute(tstr)
+				}else{
+					for ii=0, n-1 {
+sprint(tstr1, "%s %s[%d] = %g }", tstr2, tstr, ii, tobj1.get(tstr, ii))
+//print tstr1
+						execute(tstr1)
+					}
+				}
+			}
+		    }else{
+sprint(tstr, "%s %s = %g }", tstr2, tstr, tobj1.value)
+//print tstr
+			execute(tstr)
+		    }
+		}
+	    }
+	}
+    }
+}
+
+proc free() {local i, j
+	for i = 0, mlist.count-1 {
+		tobj = mlist.object(i)
+		if (ltype(tobj) == 0) {
+			tobj.ms.action("modified()", nil)
+		}
+	}
+}
+		
+func changed() {local i
+	for i=0, mlist.count - 1 {
+		if (ltype(mlist.object(i)) == 0) {
+			if (mlist.object(i).changed()) {
+				return 1
+			}
+		}
+	}
+	return 0
+}
+
+func ltype() { //0 MechanismStandard, 1 SNList, 2 CellBuildSection
+	sprint(tstr, "%s", $o1)
+	if (sf.head(tstr, "MStanWrap", tstr2) >= 0) {
+		return 0
+	}else if (sf.head(tstr, "SNList", tstr2) >= 0) {
+		return 1
+	}
+	return 2
+}
+
+proc consist() {
+	setlist.remove_all()
+	mlist.remove_all()
+	for i=0, bild.subsets.snlist.count-1 {
+		tobj = bild.subsets.snlist.object(i)
+		setlist.append(tobj)
+		if (tobj.ml.count > 0) {
+			mlist.append(tobj)
+			for j=0, tobj.ml.count-1 {
+				tobj.ml.object(j).ms.action("modified()", this)
+				mlist.append(tobj.ml.object(j))
+			}
+		}
+	}
+	for i=0, bild.topol.slist.count-1 {
+		tobj = bild.topol.slist.object(i)
+		setlist.append(tobj)
+		if (tobj.ml.count > 0) {
+			mlist.append(tobj)
+			for j=0, tobj.ml.count-1 {
+				tobj.ml.object(j).ms.action("modified()",this)
+				mlist.append(tobj.ml.object(j))
+			}
+		}
+	}
+	if (mlist.count > mlist_selected) {
+		mlist.select(mlist_selected)
+	}else{
+		mlist.select(-1)
+	}
+	export()
+}
+proc update() {local i, j
+	bild.subsets.update()
+	consist()
+	if (mlist.count) {
+		inmode_ = 0
+	}else{
+		inmode_ = 1
+	}
+	first = 0
+	if (setlist.count > 0) {
+		setlist.select(0)
+	}
+	inmode()			
+	g.exec_menu("Crosshair")
+}
+proc panel() { local i
+	hbox = new HBox(3)
+	hbox.intercept(1)
+	hbox.ref(this)
+	hbox.save("save()")
+
+	vbox = new VBox(3)
+	vbox.intercept(1)
+	xpanel("")
+	inmode_ = 1
+	xcheckbox("Specify Strategy", &inmode_, "inmode()")
+	xpanel()
+	d1 = new Deck(3)
+	d1.intercept(1)
+	setlist.browser("", tstr, "setlistname(hoc_ac_)")
+	setlist.select_action("selsub(hoc_ac_)")
+	setlist.accept_action("selsub(hoc_ac_)")
+	mlist.browser("", tstr, "mlistname(hoc_ac_)")
+	mlist.select_action("selms(hoc_ac_)")
+	mlist.accept_action("selms(hoc_ac_)")
+	d1.intercept(0)
+	d1.map()
+	d1.flip_to(0)
+	xpanel("")
+	xbutton("Hints", "hints()")
+	xpanel()
+	vbox.intercept(0)
+	vbox.map()
+	double mstate[mt.count]
+	objref ms[mt.count]
+	d2 = new Deck(3)
+	d2.intercept(1)
+	xpanel("")
+	xvarlabel(lab1)
+	for i=0, mt.count-1 {
+		mt.select(i)
+		mt.selected(tstr)
+		if (i == 4) { continue }
+		if (i == 0) tstr = "Ra"
+		if (i == 1) tstr = "cm"
+		if (sf.substr(tstr, "_ion") >= 0) { continue }
+		sprint(tstr2, "selmt(%d)", i)
+		xcheckbox(tstr, &mstate[i], tstr2)
+	}
+	xpanel()
+	xpanel("")
+	xlabel("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")
+	xpanel()
+	d2.intercept(0)
+	d2.flip_to(0)
+	d2.map()
+	hbox.intercept(0)
+}
+
+proc inmode() {
+	if (inmode_ == 1) {
+		d1.flip_to(0)
+		d2.flip_to(0)
+		selsub(setlist.selected)
+	}else{
+		consist()
+		d1.flip_to(1)
+		if (mlist.count > 0) {
+			mlist.select(0)
+			doNotify()
+			selms(0)
+		}else{
+			d2.flip_to(-1)
+		}
+	}
+}
+
+proc modified() {local i
+	i = mlist.selected()
+	if (i < 0) {
+		i = mlist_selected
+	}
+	tobj = mlist.object(i)
+	mlist.remove(i)
+	mlist.insrt(i, tobj)
+	mlist.select(i)
+	export()
+	if ( mlist.object(i).is_ms == 0 && emem) { //Ra or cm
+		bild.geom.export_autonseg()
+	}
+}
+
+proc selms() {local i, j, l
+	if ($1 == -1) { return }
+	if ((l = ltype(mlist.object($1))) != 0) { //mechanism
+		$1 += 1
+		mlist.select($1)
+	}
+	for (i=$1-1; i >= 0; i -= 1) {
+		tobj = mlist.object(i)
+		l = ltype(tobj)
+		if (l == 1) { // SNList
+			for j=0, setlist.count-1 {
+				if (setlist.object(j) == tobj) {
+					bild.subsets.showsel(j, g)
+					mspan(1, $1, tobj)
+					return
+				}
+			}
+		}else if (l == 2) { //CellBuildSection
+			bild.topol.sel_only(tobj, g)
+			mspan(2, $1, tobj)
+			return
+		}
+	}
+}
+
+proc mspan() {
+	name($o3)
+	tobj = mlist.object($2)
+	mlist_selected = $2
+	tobj.ms.name(tstr2)
+	if (tobj.is_ms) {
+		tstr1 = "insert "
+	}else{
+		tstr1 = "// specify "
+	}
+	if ($1 == 1) {
+		sprint(tstr, "forsec %s { %s%s", tstr, tstr1, tstr2)
+	}else{
+		sprint(tstr, "%s { %s%s", tstr, tstr1, tstr2)
+	}
+	if (object_id(tobj.box) == 0) {
+		tobj.box = new VBox(3)
+		tobj.box.intercept(1)
+		tobj.ms.panel(tstr)
+		tobj.box.intercept(0)
+	}
+	d2.remove_last()
+	d2.intercept(1)
+	tobj.box.map()
+	d2.intercept(0)
+	d2.flip_to(1)
+}
+
+proc setlistname() {local type
+	type = name(setlist.object($1))
+	if (type == 2) { 
+		sprint(tstr, " %s", tstr)
+	}
+	if (setlist.object($1).ml.count) {
+		sprint(tstr,"%s:    manage ...", tstr)
+	}
+}
+proc mlistname() {local type
+	type = name(mlist.object($1))
+	if (type == 0) { //mechanism
+		if (mlist.object($1).changed()) {
+			sprint(tstr, "x    %s", tstr)
+		}else{
+			sprint(tstr, "     %s", tstr)
+		}
+	}else if (type == 2) { // CellBuildSection
+		sprint(tstr, "  %s", tstr)
+	}else{
+		sprint(tstr, " %s", tstr)
+	}
+}
+
+func name() {local type
+	type = ltype($o1)
+	if (type == 0) { //mechanism
+		$o1.ms.name(tstr)
+	}else{
+		$o1.name(tstr)
+	}
+	return type
+}
+
+proc selsub() {local i, j, l
+	if ($1 == -1) return
+	l = ltype(setlist.object($1))
+	i = $1
+	setlist.select($1)
+	for j=0, mt.count-1 {
+		mstate[j] = 0
+	}
+	if (i > -1) {
+		tobj = setlist.object(i).ml
+		for j=0, tobj.count-1 {
+			if (tobj.object(j).is_ms) {
+				tobj.object(j).ms.name(tstr)
+				mt.select(tstr)
+				mstate[mt.selected] = 1
+			}else{
+				mstate[tobj.object(j).ms.type] = 1
+			}
+		}
+		name(setlist.object(i))
+		if (l == 1) {
+			sprint(lab1, "forsec %s { //specify", tstr)
+			bild.subsets.showsel(i, g)
+		}else{
+			sprint(lab1, "%s { //specify", tstr)
+			bild.topol.sel_only(setlist.object(i), g)
+		}			
+	}
+}
+	
+proc unexport() {//can't use tobj or tstr, $3 is tstr2
+	if (emem) {
+		if ($2 == 1) {
+			sprint(tstr1, "forsec %s uninsert %s", $o1.name_,$s3)
+		}else{
+			$o1.name(tstr1)
+			sprint(tstr1, "%s uninsert %s", tstr1, $s3)
+		}
+print tstr1
+		execute(tstr1)
+	}
+}
+
+proc selmt() {local i, j, l, b
+	i = setlist.selected()
+	bild.changed_ = 1
+	b = 0
+	if (i > -1) {
+		l = ltype(setlist.object(i))
+		tobj = setlist.object(i).ml
+		mt.select($1)
+		mt.selected(tstr)
+		if (mstate[$1]) { // add to list
+			if ($1 <= 1) {
+				tobj.append(new MStanWrap(new GeoSpec($1), 0))
+				b = 1
+			}else{
+				tobj.append(new MStanWrap(new MechanismStandard(tstr)))
+			}
+		}else{
+			for j=0, tobj.count-1 {
+				if (tobj.object(j).is_ms) {
+					tobj.object(j).ms.name(tstr2)
+					if (strcmp(tstr, tstr2) == 0) {
+unexport(setlist.object(i), l, tstr2)
+						tobj.remove(j)
+						break
+					}
+				}else{
+					if (tobj.object(j).ms.type == $1){
+						tobj.remove(j)
+						break
+					}
+				}
+			}
+		}
+		tobj = setlist.object(i)
+		j = mlist.index(tobj)
+		if (j == -1 && tobj.ml.count > 0) {
+			mlist.append(tobj)
+		}else if (j != -1 && tobj.ml.count == 0) {
+			mlist.remove(j)
+		}
+		setlist.remove(i)
+		setlist.insrt(i, tobj)
+		setlist.select(i)
+		export()
+		if ( b == 1 && emem) { //Ra or cm
+			bild.geom.export_autonseg()
+		}
+	}else{
+		mstate[$1] = 0
+	}
+}
+
+proc set_default() {
+	if ($o1.changed()) {
+		$o1.set_default()
+		$o1.box = nil
+	}
+}
+
+proc save_data() { local i, j, l
+	consist()
+	sprint(tstr, "}\n{object_push(%s)}\n{first=0}", $s2)
+	$o1.save(tstr)
+	for i=0, setlist.count-1 {
+		tobj = setlist.object(i)
+		l = ltype(tobj)
+		tobj = tobj.ml
+		for j=0, tobj.count-1 {
+			$o1.save("{")
+			if (tobj.object(j).is_ms) {
+				tobj.object(j).ms.save("tobj")
+			}else{
+sprint(tstr2, "tobj = new GeoSpec(%d)", tobj.object(j).ms.type)
+				$o1.save(tstr2)
+				sprint(tstr2, "tobj.value = %g", tobj.object(j).ms.value)
+				$o1.save(tstr2)
+				$o1.save("tobj.set_default()")
+			}
+			set_default(tobj.object(j))
+			sprint(tstr2, "tobj = new MStanWrap(tobj, %d)", tobj.object(j).is_ms)
+			$o1.save(tstr2)
+			if (l == 1) {
+sprint(tstr2, "bild.subsets.snlist.object(%d).ml.append(tobj)", i)
+			}else{
+sprint(tstr2, "bild.topol.slist.object(%d).ml.append(tobj)", \
+  bild.topol.slist.index(setlist.object(i)))
+			}
+			$o1.save(tstr2)
+			$o1.save("}")
+		}			
+	}
+	$o1.save("{object_pop()}\n{")
+	inmode()
+}
+	
+proc pr() {local i, j, l, m, n, ii
+	consist()
+	$o1.printf("proc biophys() {\n")
+	for i=0, setlist.count-1{
+	    tobj = setlist.object(i)
+	    if (tobj.ml.count) {
+		l = ltype(tobj)
+		if (l == 1) {
+			$o1.printf("  forsec %s {\n", tobj.name_)
+		}else{
+			tobj.name(tstr)
+			$o1.printf("  %s {\n", tstr)
+		}
+		tobj = tobj.ml
+		for j=0, tobj.count-1 {
+			tobj1 = tobj.object(j).ms
+			tobj1.name(tstr)
+		    if (tobj.object(j).is_ms) {
+			$o1.printf("    insert %s\n", tstr)
+			for m=0, tobj1.count-1 {
+				n = tobj1.name(tstr, m)
+				if (n == 1) {
+$o1.printf("      %s = %g\n", tstr, tobj1.get(tstr))
+				}else{
+					for ii=0, n-1 {
+$o1.printf("      %s[%d] = %g\n", tstr, ii, tobj1.get(tstr))
+					}
+				}
+			}
+		    }else{
+$o1.printf("    %s = %g\n", tstr, tobj1.value)
+		    }
+		}
+ 		$o1.printf("  }\n")
+	    }
+	}
+	$o1.printf("}\n")
+}
+
+endtemplate CellMembrane
+

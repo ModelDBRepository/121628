@@ -1,0 +1,91 @@
+// TO REFER TO A RANGE VARIABLE; eg. sExEx.gmaxAMPA
+// TO REFER TO A GLOBAL VARIABLE: NAMEVARIABE_NAMEOFMODEL e.g. Erev_1_EPlasSyn
+
+//----------------------------------------------------------------------------
+//  load define general NEURON menus
+//----------------------------------------------------------------------------
+
+xopen("$(NEURONHOME)/lib/hoc/noload.hoc") // avoid time to search with load_proc
+nrnmainmenu()										// create main menu
+nrncontrolmenu()									// crate control menu
+
+//----------------------------------------------------------------------------
+//  load TEMPLATE files
+//----------------------------------------------------------------------------
+
+xopen("./cellsIAF.template")			// load template for RE cell
+
+//----------------------------------------------------------------------------
+//  define basic NEURON and RUN parameters
+//----------------------------------------------------------------------------
+
+dt=0.1
+tstop = 500
+runStopAt = tstop
+steps_per_ms = 1
+celsius = 36
+v_init = -60
+
+
+//----------------------------------------------------------------------------
+//  NETWORK PARAMETERS
+//----------------------------------------------------------------------------
+
+// NUMBER OF CELLS
+nEx = 2 						// 100
+
+// NUMBER OF SYNAPSES
+nEx_Ex 	=10                     // 10
+
+//----------------------------------------------------------------------------
+//  MAKE CELLS andd SYNAPTOGENESIS
+//----------------------------------------------------------------------------
+
+
+// EX CELLS------------------------------------------------------------------
+
+objectvar Ex[nEx]				// create an array of object variables
+for(i=0; i<nEx; i=i+1) {
+	Ex[i] = new ExSoma()
+	Ex[i].soma.SetCa_ExIAF = 5
+	
+}
+
+
+// MAKE ICLAMP
+objectvar ExStim[nEx][2]
+Ex[0].soma ExStim[0][0] = new IClamp(.5)    
+ExStim[0][0].del = 50
+ExStim[0][0].dur = 100
+ExStim[0][0].amp = 0.01
+
+// MAKE SYNAPSES
+
+objectvar sExEx
+sExEx = new EPlasSyn()
+Ex[1].soma sExEx.loc(0.5)
+setpointer sExEx.ampa, Ex[0].soma.ampa_EPlasSom
+setpointer sExEx.nmda, Ex[0].soma.nmda_EPlasSom
+setpointer sExEx.lastprespike, Ex[0].soma.lastspike_EPlasSom
+
+setpointer sExEx.Gain, Ex[1].soma.Gain_ExIAF
+setpointer sExEx.ScaleFactor, Ex[1].soma.ScaleFactor_ExIAF
+setpointer sExEx.Induction, Ex[1].soma.Induction_ExIAF
+setpointer sExEx.lastpostspike, Ex[1].soma.lastspike_EPlasSom
+sExEx.scale=0
+sExEx.gmaxNMDA =0
+sExEx.gmaxAMPA = 0.0005
+
+
+
+
+
+//----------------------------------------------------------------------------
+//  GRAPHICS
+//----------------------------------------------------------------------------
+
+xopen("graph1.ses")
+
+//objectvar g[1]			// max 10 graphs
+//g[0] = new Graph()
+//g[0].size(0,tstop,-80,10)

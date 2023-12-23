@@ -1,0 +1,705 @@
+begintemplate GeoType
+public name
+strdef name
+proc init() {
+	name = $s1
+}
+endtemplate GeoType
+
+begintemplate GeoSpec
+public type, value, oldval, changed, set_default, chk
+public name, panel, action // a fake MechanismStandard in MechStanWrap for Ra and cm
+objref mod_
+
+proc init() {
+	type = $1
+	if (type == 0) {
+		value = 80
+	}else{
+		value = 1
+	}
+	set_default()
+}
+proc set_default() {
+	oldval = value
+}
+func changed() {
+	if (oldval != value) {
+		return 1
+	}
+	return 0
+}
+
+proc name() {
+	if (type == 0) $s1 = "Ra"
+	if (type == 1) $s1 = "cm"
+}
+
+proc panel() {
+	xpanel("")
+	xlabel($s1)
+	if (type == 0) xpvalue("Ra (ohm-cm)", &value, 1, "mod()")
+	if (type == 1) xpvalue("cm (uF/cm2)", &value, 1, "mod()")
+	xpanel()
+}
+proc action() {
+	mod_ = $o2
+}
+proc mod() {
+	chk()
+	mod_.modified()
+}
+proc chk() {
+	if (type == 4) { // nseg
+		if (value < 1) { value = 1 }
+		value = int(value)
+	}else{
+		if (value <= 0) { value = 1e-6 }
+	}
+}
+endtemplate GeoSpec
+
+begintemplate CellGeometry
+public update, save_data, g, bild, changed, pr, consist, cexport, export
+public export_autonseg
+external GeoSpec, lambda_f
+objref g, this, setlist, tobj, hbox, bild, sf, vbox, d1,d2
+objref geolist, nil, tobj1
+strdef tstr, tstr2, tstr3, dstr
+double geostate[1]
+objref geotype[1]
+proc init() {local i
+	egeom = 0
+	ngeotype = 7
+	areatype = 2
+	cirtype = 3
+	nsegtype = 4
+	autonseg1 = 5
+	autonseg2 = 6
+	double geostate[ngeotype]
+	objref geotype[ngeotype]
+	geotype[0] = new GeoType("L")
+	geotype[1] = new GeoType("diam")
+	geotype[areatype] = new GeoType("area")
+	geotype[cirtype] = new GeoType("circuit")
+	geotype[nsegtype] = new GeoType("nseg")
+	geotype[autonseg1] = new GeoType("d_lambda")
+	geotype[autonseg2] = new GeoType("d_X")
+	first = 1
+	bild = $o1
+	g = bild.gtopol
+	setlist = new List()
+	geolist = new List()
+	sf = new StringFunctions()
+	panel()
+	sprint(tstr, "%s", this)
+	hbox.map(tstr)
+}
+
+proc hints() {   
+xpanel("CellBuild Geometry hints")
+xlabel("Usage Hints:")
+xlabel("First, use \"Specify Strategy\" to define a (compact)")
+xlabel("    strategy of which geometric assignments should be")
+xlabel("    associated with which subsets and individual sections.")
+xlabel("    If a subset or section is used for a geometric assignment")
+xlabel("    that fact is noted in its label.")
+xlabel("")
+xlabel("Next, unselect the strategy button to use the strategy.")
+xlabel("    Only the subsets and sections with assignments are shown.")
+xlabel("    If a subset or section has geometric values that differ")
+xlabel("    from the values when this tool was last saved in a session")
+xlabel("    file, an \"x\" is shown in front of its strategy label.")
+xlabel("")
+xlabel("The strategy order should be general to specific since the")
+xlabel("  specification will be executed in the order given.")
+xlabel("  Go back to \"Subsets\" if more subsets are needed or if the")
+xlabel("  order needs to be changed.")   
+xpanel()
+}
+
+proc cexport() {local i
+        egeom = $1
+        if (bild.continuous == 0) {
+                egeom = 0 
+        }
+	consist()
+}
+
+proc export() {local i, j, type, x
+	if (egeom) {
+		is_auto = 0
+		for i=0, geolist.count - 1 {
+			tobj = geolist.object(i)
+			type = ltype(tobj)
+			tobj.name(tstr2)
+			if (type == 1) {
+				sprint(tstr2, "forsec %s {", tstr2)
+			}else if (type == 2) {
+				sprint(tstr2, "%s {", tstr2)
+			}else { continue }
+			tobj = tobj.geo
+			for j=0, tobj.count-1 {
+				k = tobj.object[j].type
+				if (k == areatype) {
+					x = tobj.object(j).value
+sprint(tstr2, "%s L = diam = %g ", tstr2, sqrt(x/PI))
+				}else if (k == cirtype) {
+sprint(tstr2, "%s L= 43.0127  diam=100/L/PI ", tstr2)
+				}else if (k == autonseg1) {
+					is_auto = 1
+				}else if (k == autonseg2) {
+					is_auto = 1
+				}else if (k == nsegtype) {
+					is_auto = 1
+				}else{
+sprint(tstr2,"%s %s = %g ", tstr2, geotype[tobj.object[j].type].name, tobj.object[j].value)
+				}
+			}			
+			sprint(tstr2, "%s }", tstr2)
+//print tstr2
+			execute(tstr2)
+		}
+		execute("area(.5)")
+	}
+	export_autonseg()
+}
+
+proc export_autonseg() {local i, j, type, b
+	if (egeom && is_auto) {
+//print "export_autonseg"
+		for i=0, geolist.count - 1 {
+			b = 0
+			tobj = geolist.object(i)
+			type = ltype(tobj)
+			tobj.name(tstr2)
+			if (type == 1) {
+				sprint(tstr2, "forsec %s {", tstr2)
+			}else if (type == 2) {
+				sprint(tstr2, "%s {", tstr2)
+			}else { continue }
+			tobj = tobj.geo
+			for j=0, tobj.count-1 {
+				k = tobj.object[j].type
+				if (k == areatype) {
+				}else if (k == cirtype) {
+				}else if (k == autonseg1) {
+					b=1
+					x = tobj.object(j).value
+sprint(tstr2, "%s nseg = int((L/(%g*lambda_f(100))+.9)/2)*2 + 1 ", tstr2, x)
+				}else if (k == autonseg2) {
+					b=1
+					x = tobj.object(j).value
+sprint(tstr2, "%s nseg = int((L/%g + .9)/2)*2 + 1 ", tstr2, x)
+				}else if (k == nsegtype) {
+					b=1
+					x = tobj.object(j).value
+sprint(tstr2, "%s nseg = %d ", tstr2, x)
+				}else{
+				}
+			}			
+			sprint(tstr2, "%s }", tstr2)
+//print tstr2
+			if (b) {
+				execute(tstr2)
+			}
+		}
+	}
+}
+
+func changed() { local i
+	for i=0, geolist.count - 1 {
+		if (ltype(geolist.object(i)) == 0) {
+			if (geolist.object(i).changed()) {
+				return 1
+			}
+		}
+	}
+	return 0
+}
+
+func ltype() { //0 GeoSpec, 1 SNList, 2 CellBuildSection
+	sprint(tstr, "%s", $o1)
+	if (sf.head(tstr, "GeoSpec", tstr2) >= 0) {
+		return 0
+	}else if (sf.head(tstr, "SNList", tstr2) >= 0) {
+		return 1
+	}
+	return 2
+}
+
+proc consist() {
+	setlist.remove_all()
+	geolist.remove_all()
+	for i=0, bild.subsets.snlist.count-1 {
+		tobj = bild.subsets.snlist.object(i)
+		setlist.append(tobj)
+		if (tobj.geo.count > 0) {
+			geolist.append(tobj)
+		}
+	}
+	for i=0, bild.topol.slist.count-1 {
+		tobj = bild.topol.slist.object(i)
+		setlist.append(tobj)
+		if (tobj.geo.count > 0) {
+			geolist.append(tobj)
+		}
+	}
+	if (geolist.count > geolist_selected) {
+		geolist.select(geolist_selected)
+	}else{
+		geolist.select(-1)
+	}
+	export()
+}
+proc update() {local i, j
+	bild.subsets.update()
+	if (geolist.count) {
+		inmode_ = 0
+	}else{
+		inmode_ = 1
+		consist()
+	}
+	if (setlist.count > 0) {
+		setlist.select(0)
+	}
+	inmode()			
+//	if (first) hints()
+	first = 0
+	g.exec_menu("Crosshair")
+}
+proc panel() { local i
+	hbox = new HBox(3)
+	hbox.intercept(1)
+	hbox.ref(this)
+	hbox.save("save()")
+
+	vbox = new VBox(3)
+	vbox.intercept(1)
+	xpanel("")
+	inmode_ = 1
+	xcheckbox("Specify Strategy", &inmode_, "inmode()")
+	xpanel()
+	d1 = new Deck(3)
+	d1.intercept(1)
+	setlist.browser("", tstr, "setlistname(hoc_ac_)")
+	setlist.select_action("selsub(hoc_ac_)")
+	setlist.accept_action("selsub(hoc_ac_)")
+	geolist.browser("", tstr, "geolistname(hoc_ac_)")
+	geolist.select_action("selgeo(hoc_ac_)")
+	geolist.accept_action("selgeo(hoc_ac_)")
+	d1.intercept(0)
+	d1.map()
+	d1.flip_to(0)
+	xpanel("")
+	xbutton("Hints", "hints()")
+	xpanel()
+	vbox.intercept(0)
+	vbox.map()
+	d2 = new Deck(3)
+	d2.intercept(1)
+	xpanel("")
+	double geostate[ngeotype]
+	for i=0, ngeotype-1 {
+		if (i == nsegtype) {
+			xlabel("-------------")
+			xlabel("Spatial Grid")
+		}
+		sprint(tstr, "selgeotype(%d)", i)
+		xcheckbox(geotype[i].name, &geostate[i], tstr)
+	}
+	xpanel()
+	xpanel("")
+	xlabel("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")
+	xpanel()
+	d2.intercept(0)
+	d2.flip_to(0)
+	d2.map()
+	hbox.intercept(0)
+}
+
+proc inmode() {
+	if (inmode_ == 1) {
+		d1.flip_to(0)
+		d2.flip_to(0)
+		selsub(0)
+	}else{
+		consist()
+		d1.flip_to(1)
+		if (geolist.count > 0) {
+			geolist.select(0)
+			doNotify()
+			selgeo(0)
+		}else{
+			d2.flip_to(-1)
+		}
+	}
+}
+
+proc selgeo() {local i, j, l
+	if ($1 == -1) return
+	while ((l = ltype(geolist.object($1))) == 0) {
+		$1 -= 1
+	}
+	geolist.select($1)
+	geolist_selected = $1
+	d2.remove_last()
+	d2.intercept(1)
+	tobj = geolist.object($1)
+	if (tobj.geobox == nil) {
+		tobj.geobox = new VBox(3)
+		tobj.geobox.intercept(1)
+		xpanel("")
+		if (l == 1) {
+			sprint(tstr, "forsec %s { ...", tobj.name_)
+		}else{
+			tobj.name(tstr2)
+			sprint(tstr, "%s { ...", tstr2)
+		}
+		xlabel(tstr)
+		for i=0, tobj.geo.count-1 {
+			j = tobj.geo.object(i).type
+			if (j == cirtype) { // circuit
+				xlabel("  // area : (S, uF, mA)/cm2 == uS, pF, nA")
+				xlabel("  // Ra : ohm-cm == Mohm")
+				xlabel("  L = 43.0127   diam = 100/L/PI = .74 ")
+			}else{
+				sprint(tstr, "%s.chk() modified() area2diam(\"%s\", %d)",  \
+				 tobj.geo.object(i), tobj.geo.object(i), tobj.geo.object(i).type)
+				if (j == areatype) {
+					sprint(tstr2, "%s (um2)", geotype[j].name)
+				}else if (j == autonseg1) {
+xlabel("  // lambda_w(f)^2 = diam/(4*PI*f*Ra*cm)")
+xlabel("  // nseg = ~L/(d_lambda*lambda_w(100))")
+xlabel("  // fraction of space constant at 100Hz")
+					sprint(tstr2, "d_lambda", geotype[j].name)
+				}else if (j == autonseg2) {
+xlabel("  // nseg = ~L/d_X")
+					sprint(tstr2, "d_X (um)", geotype[j].name)
+				}else if (j == 0 || j == 1) {
+					sprint(tstr2, "%s (um)", geotype[j].name)
+				}else{
+					sprint(tstr2, "%s", geotype[j].name)
+				}
+				xpvalue(tstr2, &tobj.geo.object(i).value, 1, tstr)
+				if (j == areatype) {
+					xvarlabel(dstr)
+				}
+			}
+		}
+		xpanel()
+		tobj.geobox.intercept(0)
+	}
+	for i=0, tobj.geo.count-1 {
+		sprint(tstr, "%s", tobj.geo.object(i))
+		area2diam(tstr, tobj.geo.object(i).type)
+	}
+	tobj.geobox.map()
+	d2.intercept(0)
+	d2.flip_to(1)
+	if (l == 1) { // SNList
+		for j=0, setlist.count-1 {
+			if (setlist.object(j) == tobj) {
+				bild.subsets.showsel(j, g)
+				return
+			}
+		}
+	}else if (l == 2) { //CellBuildSection
+		bild.topol.sel_only(geolist.object($1), g)
+		return
+	}
+}
+
+proc area2diam() {
+	if ($2 == areatype) {
+		sprint(tstr, "hoc_ac_ = %s.value", $s1)
+		execute(tstr)
+		x = sqrt(hoc_ac_/PI)
+		sprint(dstr, "  L = diam = %g", x)
+	}
+}
+
+proc modified() {local x
+	i = geolist.selected()
+	if (i < 0) {
+		i = geolist_selected
+	}
+	tobj = geolist.object(i)
+	geolist.remove(i)
+	geolist.insrt(i, tobj)
+	geolist.select(i)
+	export()
+}
+
+proc geolistname() {
+	name($1, geolist)
+	if (chg) {
+		sprint(tstr, "x %s", tstr)
+	}else{
+		sprint(tstr, "  %s", tstr)
+	}
+}
+proc setlistname() {
+	name($1, setlist)
+}
+proc name() {local type, i, c
+	type = ltype($o2.object($1))
+	if (type == 0) {
+		sprint(tstr, "%s", geotype[$o2.object($1).type].name)
+		return		
+	}
+	$o2.object($1).name(tstr)
+	sprint(tstr3, " %s", tstr)
+	chg = 0
+	for i=0, $o2.object($1).geo.count-1 {
+		name(i, $o2.object($1).geo)
+		if ($o2.object($1).geo.object(i).changed() == 1) {
+			chg = 1
+		}
+		if (i == 0) {
+			sprint(tstr3, "%s:  %s", tstr3, tstr)
+		}else{
+			sprint(tstr3, "%s, %s", tstr3, tstr)
+		}
+	}
+	tstr = tstr3
+}
+
+proc selsub() {local i, j, l
+	i = $1
+	if (i > -1) {
+		l = ltype(setlist.object($1))
+		setlist.select($1)
+		for j=0, ngeotype-1 {
+			geostate[j] = 0
+		}
+		tobj = setlist.object(i).geo
+		for j=0, tobj.count-1 {
+			geostate[tobj.object(j).type] = 1
+		}
+		if (l == 1) {
+			bild.subsets.showsel(i, g)
+		}else{
+			bild.topol.sel_only(setlist.object(i), g)
+		}			
+	}else{
+//print "celgeom selsub(-1)"
+//		bild.topol.sel_all(0, g)
+	}
+}
+	
+proc selgeotype() {local i, j
+	i = setlist.selected()
+	bild.changed_ = 1
+	if (i > -1) {
+		setlist.object(i).geobox = nil
+		tobj = setlist.object(i).geo
+		if (geostate[$1]) { // add to list
+			tobj1 = new GeoSpec($1)
+			tobj.append(tobj1)
+			if ($1 == areatype) {
+				tobj1.value = 100
+			}else if ($1 == autonseg1) {
+				tobj1.value = .1
+			}else if ($1 == autonseg2) {
+				tobj1.value = 50
+			}
+			tobj1.set_default()
+		}else{
+			for j=0, tobj.count-1 {
+				if (tobj.object(j).type == $1) {
+					tobj.remove(j)
+					break
+				}
+			}
+		}
+		if (geostate[$1]) {
+			geo_consist(i, $1)
+		}
+		tobj = setlist.object(i)
+		j = geolist.index(tobj)
+		if (j == -1 && tobj.geo.count > 0) {
+			geolist.append(tobj)
+		}else if (j != -1 && tobj.geo.count == 0) {
+			geolist.remove(j)
+		}
+		setlist.remove(i)
+		setlist.insrt(i,tobj)
+		setlist.select(i)
+		export()
+	}else{
+		geostate[$1] = 0
+	}
+}
+
+proc geo_consist() {local i, j, b
+	tobj = setlist.object($1).geo
+	for (i=tobj.count - 1; i >= 0; i -= 1) {
+		j = tobj.object(i).type
+		if (j == $2) continue
+		b = 0
+		if ($2 == 0 || $2 == 1) {//L or diam remove 3, 4
+			if (j == areatype || j == cirtype) {
+				b = 1
+			}
+		}else if ($2 == areatype) { // area remove 0, 1, 4
+			if (j == 0 || j == 1 || j == cirtype) {
+				b = 1
+			}
+		}else if ($2 == cirtype) { // circuit remove 0, 1, 3
+			if (j == 0 || j == 1 || j == areatype) {
+				b = 1
+			}
+		}else if ($2 == nsegtype) { // nseg remove autonseg
+			if (j == autonseg1 || j == autonseg2) {
+				b = 1
+			}
+		}else if ($2 == autonseg1) { // remove nseg
+			if (j == nsegtype || j == autonseg2) {
+				b = 1
+			}
+		}else if ($2 == autonseg2) { // remove nseg
+			if (j == nsegtype || j == autonseg1) {
+				b = 1
+			}
+		}
+		if (b) {
+			tobj.remove(i)
+			geostate[j] = 0
+			export()
+		}
+	}
+}
+
+proc save_data() { local i, j, k, l
+	consist()
+	sprint(tstr, "}\n{object_push(%s)}\n{\nfirst = 0", $s2)
+	$o1.save(tstr)
+	k = 1
+	for i=0, setlist.count-1 {
+		tobj = setlist.object(i)
+		l = ltype(tobj)
+		tobj = tobj.geo
+		for j=0, tobj.count-1 {
+			k += 1
+			if (k%25 == 0) {
+				$o1.save("}\n{")
+			}
+			sprint(tstr, "tobj = new GeoSpec(%d)", tobj.object(j).type)
+			$o1.save(tstr)
+			sprint(tstr, "tobj.value = %g", tobj.object(j).value)
+			$o1.save(tstr)
+			if (l == 1) {
+sprint(tstr2, "bild.subsets.snlist.object(%d).geo.append(tobj)", i)
+			}else{
+sprint(tstr2, "bild.topol.slist.object(%d).geo.append(tobj)", \
+  bild.topol.slist.index(setlist.object(i)))
+			}
+			$o1.save(tstr2)
+		}			
+	}
+	$o1.save("set_default()")
+	$o1.save("}\n{object_pop()}\n{")
+	sprint(tstr, "%s.g", $s2)
+	g.erase_all()
+	selsub(setlist.selected)
+	set_default()
+}
+	
+proc set_default() {local i, j
+	consist()
+	for i=0, setlist.count-1 {
+		tobj = setlist.object(i).geo
+		for j=0, tobj.count-1 {
+			tobj.object(j).set_default()
+		}
+		setlist.object(i).geobox = nil
+	}
+	export()
+	inmode()
+}
+
+proc pr() {local i, j, l, k, x, is_auto
+	consist()
+	is_auto = 0
+	$o1.printf("proc geom() {\n")
+	for i=0, setlist.count-1{
+	    tobj = setlist.object(i)
+	    if (tobj.geo.count) {
+		l = ltype(tobj)
+		if (l == 1) {
+			$o1.printf("  forsec %s { ", tobj.name_)
+		}else{
+			tobj.name(tstr)
+			$o1.printf("  %s { ", tstr)
+		}
+		tobj = tobj.geo
+		for j=0, tobj.count-1 {
+			k = tobj.object[j].type
+			if (k == areatype) {
+				x = tobj.object(j).value
+				$o1.printf(" /*area = %g */ L = diam = %g ", x, sqrt(x/PI))
+			}else if (k == cirtype) {
+				$o1.printf(" /*circuit*/ L= 43.0127  diam=100/L/PI ")
+			}else if (k == autonseg1) {
+				is_auto=1
+			}else if (k == autonseg2) {
+				is_auto=1
+			}else if (k == nsegtype) {
+				is_auto=1
+			}else{
+				$o1.printf(" %s = %g ", geotype[tobj.object[j].type].name, tobj.object[j].value)
+			}
+		}			
+		$o1.printf(" }\n")
+	    }
+	}
+	$o1.printf("}\n")
+	pr_autonseg($o1)
+}
+
+proc pr_autonseg() {local i, j, type, x
+		if (bild.manage.toplevel == 0) {
+	$o1.printf("external lambda_f\n")
+		}
+		$o1.printf("proc geom_nseg() {\n")
+		for i=0, geolist.count - 1 {
+			is_auto = 0
+			tobj = geolist.object(i)
+			type = ltype(tobj)
+			tobj.name(tstr2)
+			if (type == 1) {
+				sprint(tstr2, "  forsec %s {", tstr2)
+			}else if (type == 2) {
+				sprint(tstr2, "  %s {", tstr2)
+			}else { continue }
+			tobj = tobj.geo
+			for j=0, tobj.count-1 {
+				k = tobj.object[j].type
+				if (k == areatype) {
+				}else if (k == cirtype) {
+				}else if (k == autonseg1) {
+					is_auto=1
+					x = tobj.object(j).value
+sprint(tstr2, " %s nseg = int((L/(%g*lambda_f(100))+.9)/2)*2 + 1 ", tstr2, x)
+				}else if (k == autonseg2) {
+					is_auto=1
+					x = tobj.object(j).value
+sprint(tstr2, " %s nseg = int((L/x + .9)/2)*2 + 1 ", tstr2, x)
+				}else if (k == nsegtype) {
+					is_auto=1
+					x = tobj.object(j).value
+sprint(tstr2, " %s nseg = %d ", tstr2, x)
+				}else{
+				}
+			}			
+			sprint(tstr2, "%s }", tstr2)
+//print tstr2
+			if (is_auto) {
+				$o1.printf("%s\n", tstr2)
+			}
+		}
+	$o1.printf("}\n")
+}
+
+endtemplate CellGeometry

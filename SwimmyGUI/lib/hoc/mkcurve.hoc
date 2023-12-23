@@ -1,0 +1,284 @@
+begintemplate MakeCurve
+public vx, vy, b, map, g, set
+external hoc_obj_
+objref vx, vy, g, b, this, edialog, tobj, exo, eyo
+strdef tstr, sval_, sres_
+proc init() {
+	hres_ = .1
+	vres_ = .01
+	variable_domain(&hres_, 0, 1e9)
+	variable_domain(&vres_, 0, 1e9)
+	ex_ = 0
+	ey_ = 0
+	i = 0
+	vx = new Vector()
+	vy = new Vector()
+	build()
+	if (numarg() == 0) {
+		map()
+	}
+}
+
+proc set() {
+	vx.copy($o1)
+	vy.copy($o2)
+	vy.label($o2.label)
+	draw()
+}
+
+proc build() {
+	b = new HBox(3)
+	b.save("save()")
+	b.ref(this)
+	b.intercept(1)
+	g = new Graph()
+	g.size(0,10, 0, 1)
+	prune_menu(g)
+	xpanel("")
+	xvarlabel(sval_)
+	xlabel("Control Points")
+	g.menu_tool("Add", "add")
+	g.menu_tool("Move", "move")
+	g.menu_tool("Remove", "remove")
+	g.menu_tool("Enter Value", "enter")
+	xcheckbox("Horizontal only", &honly_, "honly()")
+	xcheckbox("Vertical only", &vonly_, "vonly()")
+	res()
+	xvarlabel(sres_)
+	xpanel()
+	g.menu_action("Copy from Clipboard", "from_clip()")
+	g.menu_action("Set Resolution", "set_res()")
+	b.intercept(0)
+	edialog = new VBox()
+	edialog.intercept(1)
+	xpanel("")
+	exo = new ValueFieldEditor("x", &ex_, 1, "edact()")
+	eyo = new ValueFieldEditor("y", &ey_, 1, "edact()")
+	xpanel()
+	edialog.intercept(0)
+}
+
+proc prune_menu() {
+        $o1.menu_remove("Plot what?")
+        $o1.menu_remove("Color/Brush")
+        $o1.menu_remove("Keep Lines")
+        $o1.menu_remove("Family Label?")
+        $o1.menu_remove("Erase")
+        $o1.menu_remove("Move Text")
+        $o1.menu_remove("Change Text")
+        $o1.menu_remove("Delete")
+}
+
+proc from_clip() {
+	if (object_id(hoc_obj_[0]) != 0) {
+		vx = hoc_obj_[1].c
+		vy = hoc_obj_[0].c
+		draw()
+	}
+}
+
+proc map() {
+	sprint(tstr, "%s", this)
+	if (numarg() > 1) {
+		b.map(tstr, $2, $3, $4, $5)
+	}else{
+		b.map(tstr)
+	}
+}
+
+proc honly() {
+	if (honly_) { vonly_ = 0 }
+}
+
+proc vonly() {
+	if (vonly_) { honly_ = 0 }
+}
+
+proc sval() {
+	if ($1 >= 0 && $1 < vx.size) {
+		sprint(sval_, "(%g, %g)", vx.x[ipt], vy.x[ipt])
+	}else{
+		sval_ = ""
+	}
+}
+
+proc draw() {
+	g.erase()
+	vy.line(g, vx)
+	vy.mark(g, vx, "s", 8)
+	g.flush()
+}
+
+proc add() {local i
+	if ($1 == 2) {
+		$2 = round($2, hres_)
+		$3 = round($3, vres_)
+		i = vx.indwhere(">", $2)
+		if (i == -1) {
+			vx.append($2)
+			vy.append($3)
+			ipt = vx.size - 1
+		}else{
+			vx.insrt(i, $2)
+			vy.insrt(i, $3)
+			ipt = i
+		}
+		setxy(ipt, $2, $3)
+		draw()
+		sval(ipt)
+	}else{
+		move($1,$2,$3,$4)
+	}
+}
+
+func nearest() {local i
+	i = vx.indwhere(">", $1)
+	if (i == -1) {
+		return vx.size - 1
+	}else if (i == 0) {
+		return i
+	}else if ((vx.x[i] - $1) > ($1 - vx.x[i-1])) {
+		return i - 1
+	}else{
+		return i
+	}
+}
+proc move() {local i
+	if (vx.size == 0) return
+	if ($1 == 2) {
+		ipt = nearest($2)
+	}
+	setxy(ipt, $2, $3)
+	draw()
+	if ($1 == 3) {
+		sval(-1)
+	}else{
+		sval(ipt)
+	}
+}
+
+proc remove() {
+	if (vx.size == 0) return
+	if ($1 == 3) {
+		if (ipt >= 0) {
+			vx.remove(ipt)
+			vy.remove(ipt)
+		}
+		draw()
+		sval(-1)
+	}else{
+		ipt = nearest($2)
+		draw()
+		if ($2 < vx.x[0] - hres_ || $2 > vx.x[vx.size-1] + hres_ ) {
+			ipt = -1
+		}else{
+			g.mark(vx.x(ipt), vy.x(ipt), "S", 8, 2, 1)
+		}
+		sval(ipt)
+	}
+}
+
+proc res() {
+	sprint(sres_, "Resolution %g %g", hres_, vres_)
+}
+
+func round() {local x
+	if ($2 > 0) {
+		x = $1 + $2/2
+		return x - x%$2
+	}
+	return $1
+}
+
+proc set_res() {local x, y
+	x = hres_  y = vres_
+	tobj = new VBox()
+	tobj.intercept(1)
+	xpanel("")
+	xpvalue("Horizontal", &hres_, 1)
+	xpvalue("Vertical", &vres_, 1)
+	xpanel()
+	tobj.intercept(0)
+	sprint(tstr, "Enter x and y grid resolution")
+	if (tobj.dialog(tstr) == 0) {
+		hres_ = x  vres_ = y
+	}
+	res()
+	objref tobj
+}
+
+proc setxy() {
+	$2 = round($2, hres_)
+	$3 = round($3, vres_)
+	// do not allow moving past adjacent points
+	if (vonly_ == 0) {
+		if ($1 > 0) if ($2 < vx.x[ipt-1]) $2 = vx.x[ipt-1]+1e-6
+		if ($1 < vx.size - 1) if ($2 > vx.x[ipt+1]) $2 = vx.x[ipt+1]-1e-6
+		vx.x[ipt] = $2
+	}
+	if (honly_ == 0) {
+		vy.x[ipt] = $3
+	}
+}
+
+proc edact() {
+	setxy(ipt, ex_, ey_)
+	ex_ = vx.x[ipt]
+	ey_ = vy.x[ipt]
+	draw()
+	g.mark(vx.x[ipt], vy.x[ipt], "S", 8, 2, 1)
+	sval(ipt)
+}
+
+proc enter() { local i, x, y
+	if (vx.size == 0) return
+	if ($1 == 3) {
+		if (ipt >= 0) {
+			ex_ = x = vx.x[ipt]  ey_ = y = vy.x[ipt]
+			exo.default  eyo.default
+			sprint(tstr, "Enter coords for point %d at (%g, %g)", ipt, x, y)
+			doNotify()
+			if (edialog.dialog(tstr) == 0) {
+				vx.x[ipt] = x  vy.x[ipt] = y
+			}
+		}
+		draw()
+		sval(-1)
+	}else{
+		ipt = nearest($2)
+		draw()
+		if ($2 < vx.x[0] - hres_ || $2 > vx.x[vx.size-1] + hres_ ) {
+			ipt = -1
+		}else{
+			g.mark(vx.x(ipt), vy.x(ipt), "S", 8, 2, 1)
+		}
+		sval(ipt)
+	}
+}
+
+proc save() {local i
+	b.save("load_file(\"mkcurve.hoc\", \"MakeCurve\")\n}\n{")
+	b.save("ocbox_=new MakeCurve(1)")
+	b.save("}\n{object_push(ocbox_)}")
+	sprint(tstr, "{honly_=%g vonly_=%g hres_=%g vres_=%g res()}", honly_, vonly_, hres_, vres_)
+	b.save(tstr)
+	sprint(tstr, "{vx.resize(%d) vy.resize(%d)}", vx.size, vy.size)
+	b.save(tstr)
+	sprint(tstr, "for i=0,%d { vx.x[i]=fscan() vy.x[i]=fscan()}",\
+		vx.size-1)
+	b.save(tstr)
+	for i=0, vx.size-1 {
+		sprint(tstr, "%g %g", vx.x[i], vy.x[i])
+		b.save(tstr)
+	}
+	b.save("{draw() object_pop()}\n{")
+	g.save_name("ocbox_.g", 1)
+}
+
+endtemplate MakeCurve
+
+objref tobj
+proc makeMakeCurve() {
+	tobj = new MakeCurve()
+	objref tobj
+}
